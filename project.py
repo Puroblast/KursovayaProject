@@ -68,35 +68,44 @@ def call_back(request,ids_db):
                     cur.execute(f"DELETE FROM '{number}' WHERE mesta='{zone_id}'")
             cur.execute(f"INSERT INTO `{number}` VALUES ('{str(zone_id)}', '{str(call)}', '{mark}')")
 
+def friends(request,friends_db):
+    pass
 
 server = socket.create_server(("127.0.0.1",2000))
-server.listen()
-client, adress = server.accept()
-data = client.recv(1024).decode("utf-8")
-HDRS = 'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n'
-request = data.split()[1].split("/")
-cmd = request[1]
-auth_db = sql.connect('auth.db')
-ids_db = sql.connect('ids.db')
+server.listen(4)
+while True:
+    try:
+        client, adress = server.accept()
+        data = client.recv(1024).decode("utf-8")
+        HDRS = 'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n'
+        request = data.split()[1].split("/")
+        cmd = request[1]
+        auth_db = sql.connect('auth.db')
+        ids_db = sql.connect('ids.db')
 
-commands = ["AUTH", "SIGNIN", "CALLBACK"]
-if cmd == commands[0]:
-    people_auth(auth_db, request,ids_db)
-elif cmd == commands[1]:
-    sign_in(request)
-elif cmd == commands[2]:
-    call_back(request,ids_db)
+        commands = ["AUTH", "SIGNIN", "CALLBACK"]
+        if cmd == commands[0]:
+            people_auth(auth_db, request,ids_db)
+        elif cmd == commands[1]:
+            sign_in(request)
+        elif cmd == commands[2]:
+            call_back(request,ids_db)
 
-"""""""""
-main_bd = sql.connect('ids.db')
-with main_bd:
-    cur = main_bd.cursor()
-    #cur.execute("DELETE FROM auth WHERE number='7'")
-    cur.execute(f"SELECT * FROM '{request[2]}'")
-    current_table = cur.fetchall()
-    print(current_table)
-    main_bd.commit()
-    cur.close()
-#####   res = curs.execute("SELECT name FROM sqlite_master WHERE type='table';") ##### просмотр имен таблиц
-##for name in res:
-##    print(name[0])"""""
+        print("hi")
+        client.shutdown(socket.SHUT_WR)
+    except KeyboardInterrupt:
+        server.close()
+
+    """""""""
+    main_bd = sql.connect('ids.db')
+    with main_bd:
+        cur = main_bd.cursor()
+        #cur.execute("DELETE FROM auth WHERE number='7'")
+        cur.execute(f"SELECT * FROM '{request[2]}'")
+        current_table = cur.fetchall()
+        print(current_table)
+        main_bd.commit()
+        cur.close()
+    #####   res = curs.execute("SELECT name FROM sqlite_master WHERE type='table';") ##### просмотр имен таблиц
+    ##for name in res:
+    ##    print(name[0])"""""
