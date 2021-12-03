@@ -68,7 +68,7 @@ def call_back(request,ids_db):
                 if str(table[i][0]) == str(zone_id):
                     cur.execute(f"DELETE FROM '{number}' WHERE mesta='{zone_id}'")
                     break
-            cur.execute(f"INSERT INTO `{number}` VALUES ('{str(zone_id)}', '{str(call)}', '{mark}')")
+            cur.execute(f"INSERT INTO `{number}` VALUES ('{str(zone_id)}', '{str(call)}', '{mark}')") ## во фронте реализовать невозможность ввода апострофов иначе бум
             ids_db.commit()
             cur.close()
     else:
