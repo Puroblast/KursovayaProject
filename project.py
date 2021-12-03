@@ -33,8 +33,8 @@ def people_auth(auth_db, request,ids_db):
         cur.close()
 
 def sign_in(request):
-    cur = auth_db.cursor()
     if len(request) == 5:
+        cur = auth_db.cursor()
         number, pwd = request[2],request[3]
         cur.execute("SELECT number,pwd FROM `auth`")
         table = cur.fetchall()
@@ -52,6 +52,7 @@ def sign_in(request):
         if flag:
             answer = "NO".encode("utf-8")
         client.send(HDRS.encode('utf-8') + answer)
+        cur.close()
     else:
         answer = "NO".encode("utf-8")
         client.send(HDRS.encode('utf-8') + answer)
@@ -66,10 +67,51 @@ def call_back(request,ids_db):
             for i in range(len(table)):
                 if str(table[i][0]) == str(zone_id):
                     cur.execute(f"DELETE FROM '{number}' WHERE mesta='{zone_id}'")
+                    break
             cur.execute(f"INSERT INTO `{number}` VALUES ('{str(zone_id)}', '{str(call)}', '{mark}')")
+            ids_db.commit()
+            cur.close()
+    else:
+        answer = 'NO'.encode("utf-8")
+        client.send(HDRS.encode('utf-8') + answer)
 
 def friends(request,friends_db):
     pass
+
+def my_calls(request,ids_db):
+    if len(request) == 4:
+        with ids_db:
+            cur = ids_db.cursor()
+            number = request[2]
+            cur.execute(f"SELECT * FROM '{number}'")
+            table = cur.fetchall()
+            answer= str()
+            for i in range(len(table)):
+                answer = answer + f'{table[i][0]} {table[i][1]} {table[i][2]}<br>'
+            answer = answer.encode("utf-8")
+            client.send(HDRS.encode('utf-8') + answer)
+            ids_db.commit()
+            cur.close()
+    else:
+        answer = 'NO'.encode("utf-8")
+        client.send(HDRS.encode('utf-8') + answer)
+
+def delete_call(request,ids_db):
+    if len(request) == 5:
+        with ids_db:
+            cur = ids_db.cursor()
+            number, zone_id = request[2], request[3]
+            cur.execute(f"SELECT mesta FROM `{number}`")
+            table = cur.fetchall()
+            for i in range(len(table)):
+                if str(zone_id) == str(table[i][0]):
+                    cur.execute(f"DELETE FROM '{number}' WHERE mesta='{zone_id}'")
+                    break
+            ids_db.commit()
+            cur.close()
+    else:
+        answer = 'NO'.encode("utf-8")
+        client.send(HDRS.encode('utf-8') + answer)
 
 server = socket.create_server(("127.0.0.1",2000))
 server.listen(4)
@@ -83,19 +125,21 @@ while True:
         auth_db = sql.connect('auth.db')
         ids_db = sql.connect('ids.db')
 
-        commands = ["AUTH", "SIGNIN", "CALLBACK"]
+        commands = ["AUTH", "SIGNIN", "CALLBACK","MYCALLS","DELETE"]
         if cmd == commands[0]:
             people_auth(auth_db, request,ids_db)
         elif cmd == commands[1]:
             sign_in(request)
         elif cmd == commands[2]:
             call_back(request,ids_db)
-
-        print("hi")
+        elif cmd == commands[3]:
+            my_calls(request,ids_db)
+        elif cmd == commands[4]:
+            delete_call(request,ids_db)
         client.shutdown(socket.SHUT_WR)
     except KeyboardInterrupt:
         server.close()
-
+        break
     """""""""
     main_bd = sql.connect('ids.db')
     with main_bd:
