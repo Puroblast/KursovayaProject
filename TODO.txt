@@ -3,3 +3,38 @@
 3. Callback changes
 3. Finder
 4. Adding friends
+
+
+
+otzivi mest:
+    with otzyvs_db:
+    curs = otzyvs_db.cursor()
+    with zones_db:
+        cur = zones_db.cursor()
+        cur.execute(f"SELECT name FROM 'zone'")
+        for kek in cur.fetchall():
+            curs.execute(f"CREATE TABLE IF NOT EXISTS '{str(kek[0])}' (`number` STRING, `otzivi` STRING, 'mark' STRING)")
+        zones_db.commit()
+        cur.close()
+    otzyvs_db.commit()
+    curs.close()
+
+debug:
+
+main_bd = sql.connect('calls.db')
+with main_bd:
+    cur = main_bd.cursor()
+    #cur.execute("DELETE FROM auth WHERE number='7'")
+    #cur.execute(f"SELECT * FROM '{request[2]}'")
+    #current_table = cur.fetchall()
+    #print(current_table)
+    #main_bd.commit()
+    #cur.close()
+    res = cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    to = cur.fetchall()
+    for i in to:
+        cur.execute(f"SELECT * FROM '{str(i[0])}'")
+        table = cur.fetchall()
+        print(table)
+
+    cur.close()
