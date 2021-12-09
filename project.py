@@ -6,12 +6,12 @@ import json
 main_bd = sql.connect('calls.db')
 with main_bd:
     cur = main_bd.cursor()
-    #cur.execute("DELETE FROM auth WHERE number='7'")
-    #cur.execute(f"SELECT * FROM '{request[2]}'")
-    #current_table = cur.fetchall()
-    #print(current_table)
-    #main_bd.commit()
-    #cur.close()
+    # cur.execute("DELETE FROM auth WHERE number='7'")
+    # cur.execute(f"SELECT * FROM '{request[2]}'")
+    # current_table = cur.fetchall()
+    # print(current_table)
+    # main_bd.commit()
+    # cur.close()
     res = cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
     to = cur.fetchall()
     for i in to:
@@ -20,6 +20,25 @@ with main_bd:
         print(table)
 
     cur.close()
+
+
+def zone_call(request, calls_db):
+    if len(request) == 4:
+        with calls_db:
+            cur = calls_db.cursor()
+            cur.execute(f"SELECT * FROM '{str(request[2])}'")
+            table = cur.fetchall()
+            answer = json.dumps(table)
+            answer = answer.encode('utf-8')
+            client.send(HDRS.encode('utf-8') + answer)
+            cur.close()
+            calls_db.commit()
+    else:
+        answer = json.dumps("NO")
+        answer = answer.encode('utf-8')
+        client.send(HDRS.encode('utf-8') + answer)
+
+
 def token_generator(auth_db):
     a = "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890"
     token = ""
@@ -165,7 +184,7 @@ def my_calls(request, ids_db):
         client.send(HDRS.encode('utf-8') + answer)
 
 
-def delete_call(request, ids_db,calls_db):
+def delete_call(request, ids_db, calls_db):
     if len(request) == 5:
         with ids_db:
             cur = ids_db.cursor()
@@ -212,7 +231,7 @@ while True:
             auth_db = sql.connect('auth.db')
             ids_db = sql.connect('ids.db')
             calls_db = sql.connect('calls.db')
-            commands = ["AUTH", "SIGNIN", "CALLBACK", "MYCALLS", "DELETE"]
+            commands = ["AUTH", "SIGNIN", "CALLBACK", "MYCALLS", "DELETE", "ZONECALL"]
             if cmd == commands[0]:
                 people_auth(auth_db, request, ids_db)
             elif cmd == commands[1]:
@@ -222,7 +241,9 @@ while True:
             elif cmd == commands[3]:
                 my_calls(request, ids_db)
             elif cmd == commands[4]:
-                delete_call(request, ids_db,calls_db)
+                delete_call(request, ids_db, calls_db)
+            elif cmd == commands[5]:
+                zone_call(request, calls_db)
             client.shutdown(socket.SHUT_WR)
         except Exception:
             answer = json.dumps("Nice try")
@@ -246,6 +267,3 @@ while True:
     #####   res = curs.execute("SELECT name FROM sqlite_master WHERE type='table';") ##### просмотр имен таблиц
     ##for name in res:
     ##    print(name[0])"""""
-
-
-
