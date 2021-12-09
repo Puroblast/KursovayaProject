@@ -132,7 +132,8 @@ def call_back(request, ids_db, calls_db):
                     cur.execute(f"DELETE FROM '{zone_id}' WHERE number='{token}'")
                     break
             cur.execute(f"INSERT INTO `{zone_id}` VALUES ('{token}', '{str(call)}', '{mark}')")
-
+            calls_db.commit()
+            cur.close()
         answer = json.dumps("YES")
         answer = answer.encode('utf-8')
         client.send(HDRS.encode('utf-8') + answer)
@@ -164,7 +165,7 @@ def my_calls(request, ids_db):
         client.send(HDRS.encode('utf-8') + answer)
 
 
-def delete_call(request, ids_db):
+def delete_call(request, ids_db,calls_db):
     if len(request) == 5:
         with ids_db:
             cur = ids_db.cursor()
@@ -176,6 +177,19 @@ def delete_call(request, ids_db):
                     cur.execute(f"DELETE FROM '{token}' WHERE mesta='{zone_id}'")
                     break
             ids_db.commit()
+            cur.close()
+        with calls_db:
+            cur = calls_db.cursor()
+            token, zone_id = request[2], request[3]
+            cur.execute(f"SELECT number FROM `{zone_id}`")
+            table = cur.fetchall()
+            for i in range(len(table)):
+                if str(token) == str(table[i][0]):
+                    cur.execute(f"DELETE FROM '{zone_id}' WHERE number='{token}'")
+                    break
+            answer = 'YES'.encode("utf-8")
+            client.send(HDRS.encode('utf-8') + answer)
+            calls_db.commit()
             cur.close()
     else:
         answer = 'NO'.encode("utf-8")
@@ -208,7 +222,7 @@ while True:
             elif cmd == commands[3]:
                 my_calls(request, ids_db)
             elif cmd == commands[4]:
-                delete_call(request, ids_db)
+                delete_call(request, ids_db,calls_db)
             client.shutdown(socket.SHUT_WR)
         except Exception:
             answer = json.dumps("Nice try")
