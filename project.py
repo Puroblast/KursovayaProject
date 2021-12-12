@@ -2,25 +2,7 @@ import socket
 import sqlite3 as sql
 import random
 import json
-
-main_bd = sql.connect('calls.db')
-with main_bd:
-    cur = main_bd.cursor()
-    # cur.execute("DELETE FROM auth WHERE number='7'")
-    # cur.execute(f"SELECT * FROM '{request[2]}'")
-    # current_table = cur.fetchall()
-    # print(current_table)
-    # main_bd.commit()
-    # cur.close()
-    res = cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    to = cur.fetchall()
-    for i in to:
-        cur.execute(f"SELECT * FROM '{str(i[0])}'")
-        table = cur.fetchall()
-        print(table)
-
-    cur.close()
-
+import urllib.parse
 
 def zone_call(request, calls_db):
     if len(request) == 4:
@@ -214,6 +196,29 @@ def delete_call(request, ids_db, calls_db):
         answer = 'NO'.encode("utf-8")
         client.send(HDRS.encode('utf-8') + answer)
 
+def zone_finder(request,zones_db):
+    if len(request) == 4:
+        find = urllib.parse.unquote(request[2])
+        good_news = []
+        with zones_db:
+            cur = zones_db.cursor()
+            cur.execute("SELECT * FROM 'zone'")
+            table = cur.fetchall()
+            for i in table:
+                if find.lower() in i[0].lower():
+                    good_news.append(i)
+            answer = json.dumps(good_news,ensure_ascii=False)
+            answer = answer.encode('utf-8')
+            client.send(HDRS.encode('utf-8') + answer)
+
+    else:
+        answer = json.dumps('NO')
+        answer = answer.encode('utf-8')
+        client.send(HDRS.encode('utf-8') + answer)
+
+
+
+
 
 server = socket.create_server(("127.0.0.1", 2000))
 server.listen(50)
@@ -222,16 +227,16 @@ zones_db = sql.connect("zones.db")
 
 while True:
     try:
-        try:
+        #try:
             client, adress = server.accept()
-            data = client.recv(1024).decode("utf-8")
+            data = client.recv(1024).decode('utf-8')
             HDRS = 'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n'
             request = data.split()[1].split("/")
             cmd = request[1]
             auth_db = sql.connect('auth.db')
             ids_db = sql.connect('ids.db')
             calls_db = sql.connect('calls.db')
-            commands = ["AUTH", "SIGNIN", "CALLBACK", "MYCALLS", "DELETE", "ZONECALL"]
+            commands = ["AUTH", "SIGNIN", "CALLBACK", "MYCALLS", "DELETE", "ZONECALL","FINDZONE"]
             if cmd == commands[0]:
                 people_auth(auth_db, request, ids_db)
             elif cmd == commands[1]:
@@ -244,13 +249,15 @@ while True:
                 delete_call(request, ids_db, calls_db)
             elif cmd == commands[5]:
                 zone_call(request, calls_db)
+            elif cmd == commands[6]:
+                zone_finder(request, zones_db)
             client.shutdown(socket.SHUT_WR)
-        except Exception:
-            answer = json.dumps("Nice try")
-            answer = answer.encode('utf-8')
-            client.send(HDRS.encode('utf-8') + answer)
-            client.shutdown(socket.SHUT_WR)
-            continue
+        #except Exception:
+           # answer = json.dumps("Nice try")
+           # answer = answer.encode('utf-8')
+           # client.send(HDRS.encode('utf-8') + answer)
+           # client.shutdown(socket.SHUT_WR)
+           # continue
     except KeyboardInterrupt:
         server.close()
         break
