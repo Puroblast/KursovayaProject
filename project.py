@@ -109,18 +109,24 @@ def sign_in(request):
         client.send(HDRS.encode('utf-8') + answer)
 
 
-def call_back(request, ids_db, calls_db):
+def call_back(request, ids_db, calls_db,auth_db):
     if len(request) == 7:
         token, zone_id, call, mark = request[2], trans.unquote(request[3]), trans.unquote(request[4]), request[5]
         with calls_db:
+            with auth_db:
+                cur1 = auth_db.cursor()
+                cur1.execute(f'SELECT number,name FROM "auth" WHERE token="{token}"')
+                number = cur1.fetchall()
+                auth_db.commit()
+                cur1.close()
             cur = calls_db.cursor()
             cur.execute(f"SELECT number FROM `{zone_id}`")
             table = cur.fetchall()
             for i in range(len(table)):
-                if str(table[i][0]) == str(token):
-                    cur.execute(f"DELETE FROM '{zone_id}' WHERE number='{token}'")
+                if str(table[i][0]) == str(f'{number[0][0]} {number[0][1]}'):
+                    cur.execute(f"DELETE FROM '{zone_id}' WHERE number=''{number[0][0]} {number[0][1]}'")
                     break
-            cur.execute(f"INSERT INTO `{zone_id}` VALUES ('{token}', '{str(call)}', '{mark}')")
+            cur.execute(f"INSERT INTO `{zone_id}` VALUES ('{number[0][0]} {number[0][1]}', '{str(call)}', '{mark}')")
             calls_db.commit()
             cur.close()
         with ids_db:
@@ -172,6 +178,12 @@ def delete_call(request, ids_db, calls_db):
         with ids_db:
             cur = ids_db.cursor()
             token, zone_id = request[2], trans.unquote(request[3])
+            with auth_db:
+                cur1 = auth_db.cursor()
+                cur1.execute(f'SELECT number,name FROM "auth" WHERE token="{token}"')
+                number = cur1.fetchall()
+                auth_db.commit()
+                cur1.close()
             cur.execute(f"SELECT mesta FROM `{token}`")
             table = cur.fetchall()
             for i in range(len(table)):
@@ -182,14 +194,15 @@ def delete_call(request, ids_db, calls_db):
             cur.close()
         with calls_db:
             cur = calls_db.cursor()
-            token, zone_id = request[2], request[3]
+            token, zone_id = request[2], trans.unquote(request[3])
             cur.execute(f"SELECT number FROM `{zone_id}`")
             table = cur.fetchall()
+
             for i in range(len(table)):
-                if str(token) == str(table[i][0]):
-                    cur.execute(f"DELETE FROM '{zone_id}' WHERE number='{token}'")
+                if str(f'{number[0][0]} {number[0][1]}') == str(table[i][0]):
+                    cur.execute(f"DELETE FROM '{zone_id}' WHERE number='{number[0][0]} {number[0][1]}'")
                     break
-            answer = 'YES'.encode("utf-8")
+            answer = json.dumps('YES').encode("utf-8")
             client.send(HDRS.encode('utf-8') + answer)
             calls_db.commit()
             cur.close()
@@ -245,7 +258,7 @@ while True:
             elif cmd == commands[1]:
                 sign_in(request)
             elif cmd == commands[2]:
-                call_back(request, ids_db, calls_db)
+                call_back(request, ids_db, calls_db,auth_db)
             elif cmd == commands[3]:
                 my_calls(request, ids_db)
             elif cmd == commands[4]:
