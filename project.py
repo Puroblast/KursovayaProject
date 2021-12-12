@@ -4,6 +4,7 @@ import random
 import json
 import urllib.parse as trans
 
+
 def zone_call(request, calls_db):
     if len(request) == 4:
         with calls_db:
@@ -58,7 +59,7 @@ def people_auth(auth_db, request, ids_db):
             if flag:
                 token = token_generator(auth_db)
                 cur.execute(f"INSERT INTO `auth` VALUES ('{str(number)}', '{str(name)}','{str(pwd)}','{str(token)}')")
-                answer = json.dumps("YES")
+                answer = json.dumps("YES " + token)
                 answer = answer.encode("utf-8")
                 with ids_db:
                     curs = ids_db.cursor()
@@ -82,16 +83,15 @@ def sign_in(request):
     if len(request) == 5:
         cur = auth_db.cursor()
         number, pwd = request[2], request[3]
-        cur.execute("SELECT number,pwd FROM `auth`")
+        cur.execute("SELECT number,pwd,token FROM `auth`")
         table = cur.fetchall()
         flag = True
         for i in range(len(table)):
             if str(number) == str(table[i][0]):
                 flag = False
                 if str(pwd) == str(table[i][1]):
-                    answer = json.dumps("YES")
+                    answer = json.dumps("YES " + table[i][2])
                     answer = answer.encode("utf-8")
-
                     break
                 else:
                     answer = json.dumps("NO")
@@ -149,10 +149,6 @@ def call_back(request, ids_db, calls_db,auth_db):
         answer = json.dumps("NO")
         answer = answer.encode('utf-8')
         client.send(HDRS.encode('utf-8') + answer)
-
-
-def friends(request, friends_db):
-    pass
 
 
 def my_calls(request, ids_db):
@@ -232,15 +228,26 @@ def zone_finder(request,zones_db):
         answer = answer.encode('utf-8')
         client.send(HDRS.encode('utf-8') + answer)
 
+def interesting_places(request,zones_db):
+    if len(request) == 3:
+        with zones_db:
+            cur = zones_db.cursor()
+            cur.execute("SELECT * FROM 'zone'")
+            table = cur.fetchall()
+            answer = json.dumps(table,ensure_ascii=False)
+            answer = answer.encode('utf-8')
+            client.send(HDRS.encode('utf-8') + answer)
+            zones_db.commit()
+            cur.close()
+    else:
+        answer = json.dumps('NO')
+        answer = answer.encode('utf-8')
+        client.send(HDRS.encode('utf-8') + answer)
 
-
-
-
-server = socket.create_server(("127.0.0.1", 2000))
+server = socket.create_server(("0.0.0.0", 6677))
 server.listen(50)
 otzyvs_db = sql.connect('calls.db')
 zones_db = sql.connect("zones.db")
-
 while True:
     try:
         try:
@@ -252,7 +259,7 @@ while True:
             auth_db = sql.connect('auth.db')
             ids_db = sql.connect('ids.db')
             calls_db = sql.connect('calls.db')
-            commands = ["AUTH", "SIGNIN", "CALLBACK", "MYCALLS", "DELETE", "ZONECALL","FINDZONE"]
+            commands = ["AUTH", "SIGNIN", "CALLBACK", "MYCALLS", "DELETE", "ZONECALL","FINDZONE","MAIN"]
             if cmd == commands[0]:
                 people_auth(auth_db, request, ids_db)
             elif cmd == commands[1]:
@@ -267,6 +274,8 @@ while True:
                 zone_call(request, calls_db)
             elif cmd == commands[6]:
                 zone_finder(request, zones_db)
+            elif cmd == commands[7]:
+                interesting_places(request,zones_db)
             client.shutdown(socket.SHUT_WR)
         except Exception:
             answer = json.dumps("Nice try")
