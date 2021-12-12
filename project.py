@@ -2,15 +2,15 @@ import socket
 import sqlite3 as sql
 import random
 import json
-import urllib.parse
+import urllib.parse as trans
 
 def zone_call(request, calls_db):
     if len(request) == 4:
         with calls_db:
             cur = calls_db.cursor()
-            cur.execute(f"SELECT * FROM '{str(request[2])}'")
+            cur.execute(f"SELECT * FROM '{trans.unquote(request[2])}'")
             table = cur.fetchall()
-            answer = json.dumps(table)
+            answer = json.dumps(table,ensure_ascii=False)
             answer = answer.encode('utf-8')
             client.send(HDRS.encode('utf-8') + answer)
             cur.close()
@@ -47,7 +47,7 @@ def people_auth(auth_db, request, ids_db):
         cur = auth_db.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS `auth` (`number` STRING, `name` STRING, 'pwd' STRING,'token' STRING)")
         if len(request) == 6:
-            number, name, pwd = request[2], str(request[3]), str(request[4])
+            number, name, pwd = request[2], trans.unquote(request[3]), request[4]
             cur.execute("SELECT number FROM `auth`")
             table = cur.fetchall()
             flag = True
@@ -111,19 +111,7 @@ def sign_in(request):
 
 def call_back(request, ids_db, calls_db):
     if len(request) == 7:
-        with ids_db:
-            cur = ids_db.cursor()
-            token, zone_id, call, mark = request[2], request[3], request[4], request[5]
-            cur.execute(f"SELECT mesta FROM `{token}`")
-            table = cur.fetchall()
-            for i in range(len(table)):
-                if str(table[i][0]) == str(zone_id):
-                    cur.execute(f"DELETE FROM '{token}' WHERE mesta='{zone_id}'")
-                    break
-            cur.execute(
-                f"INSERT INTO `{token}` VALUES ('{str(zone_id)}', '{str(call)}', '{mark}')")  ## во фронте реализовать невозможность ввода апострофов иначе бум
-            ids_db.commit()
-            cur.close()
+        token, zone_id, call, mark = request[2], trans.unquote(request[3]), trans.unquote(request[4]), request[5]
         with calls_db:
             cur = calls_db.cursor()
             cur.execute(f"SELECT number FROM `{zone_id}`")
@@ -135,6 +123,19 @@ def call_back(request, ids_db, calls_db):
             cur.execute(f"INSERT INTO `{zone_id}` VALUES ('{token}', '{str(call)}', '{mark}')")
             calls_db.commit()
             cur.close()
+        with ids_db:
+            cur = ids_db.cursor()
+            cur.execute(f"SELECT mesta FROM `{token}`")
+            table = cur.fetchall()
+            for i in range(len(table)):
+                if str(table[i][0]) == str(zone_id):
+                    cur.execute(f"DELETE FROM '{token}' WHERE mesta='{zone_id}'")
+                    break
+            cur.execute(
+                f"INSERT INTO `{token}` VALUES ('{str(zone_id)}', '{str(call)}', '{mark}')")  ## во фронте реализовать невозможность ввода апострофов иначе бум
+            ids_db.commit()
+            cur.close()
+
         answer = json.dumps("YES")
         answer = answer.encode('utf-8')
         client.send(HDRS.encode('utf-8') + answer)
@@ -155,7 +156,7 @@ def my_calls(request, ids_db):
             token = request[2]
             cur.execute(f"SELECT * FROM '{token}'")
             table = cur.fetchall()
-            answer = json.dumps(table)
+            answer = json.dumps(table,ensure_ascii=False)
             answer = answer.encode("utf-8")
             client.send(HDRS.encode('utf-8') + answer)
             ids_db.commit()
@@ -170,7 +171,7 @@ def delete_call(request, ids_db, calls_db):
     if len(request) == 5:
         with ids_db:
             cur = ids_db.cursor()
-            token, zone_id = request[2], request[3]
+            token, zone_id = request[2], trans.unquote(request[3])
             cur.execute(f"SELECT mesta FROM `{token}`")
             table = cur.fetchall()
             for i in range(len(table)):
@@ -198,7 +199,7 @@ def delete_call(request, ids_db, calls_db):
 
 def zone_finder(request,zones_db):
     if len(request) == 4:
-        find = urllib.parse.unquote(request[2])
+        find = trans.unquote(request[2])
         good_news = []
         with zones_db:
             cur = zones_db.cursor()
@@ -210,6 +211,8 @@ def zone_finder(request,zones_db):
             answer = json.dumps(good_news,ensure_ascii=False)
             answer = answer.encode('utf-8')
             client.send(HDRS.encode('utf-8') + answer)
+            zones_db.commit()
+            cur.close()
 
     else:
         answer = json.dumps('NO')
@@ -227,7 +230,7 @@ zones_db = sql.connect("zones.db")
 
 while True:
     try:
-        #try:
+        try:
             client, adress = server.accept()
             data = client.recv(1024).decode('utf-8')
             HDRS = 'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n'
@@ -252,12 +255,12 @@ while True:
             elif cmd == commands[6]:
                 zone_finder(request, zones_db)
             client.shutdown(socket.SHUT_WR)
-        #except Exception:
-           # answer = json.dumps("Nice try")
-           # answer = answer.encode('utf-8')
-           # client.send(HDRS.encode('utf-8') + answer)
-           # client.shutdown(socket.SHUT_WR)
-           # continue
+        except Exception:
+            answer = json.dumps("Nice try")
+            answer = answer.encode('utf-8')
+            client.send(HDRS.encode('utf-8') + answer)
+            client.shutdown(socket.SHUT_WR)
+            continue
     except KeyboardInterrupt:
         server.close()
         break
